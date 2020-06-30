@@ -23,11 +23,11 @@ class StsManager(object):
                     config('ssm_acquire_role_arn', namespace='ssm_acquire'),
                     config('mfa_serial_number', namespace='ssm_acquire', default='None')
                 )
-            )
+            )            
             return self.assume_role_with_mfa(self.sts_client, config('ssm_acquire_role_arn', namespace='ssm_acquire'))
         elif self._should_mfa() and not self._should_assume_role():
             logger.info(
-                'Assume role not specificed in the threatresponse.ini genetating sesssion token with mfa. mfa: {}.'.format(
+                'Assume role not specified in the threatresponse.ini generating session token with mfa. mfa: {}.'.format(
                     config('mfa_serial_number', namespace='ssm_acquire', default='None')
                 )
             )

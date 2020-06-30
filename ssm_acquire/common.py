@@ -27,6 +27,9 @@ def get_config():
 def load_acquire():
     this_path = os.path.abspath(os.path.dirname(__file__))
     path = os.path.join(this_path, "acquire-plans/linpmem.yml")
+
+    # print('path={}'.format(path))
+
     return yaml.safe_load(open(path))
 
 
@@ -107,7 +110,11 @@ def get_limited_policy(region, instance_id):
     config = get_config()
     policy_template = load_policy()
     instance_arn = generate_arn_for_instance(region, instance_id)
+    
+    # will throw ConfigurationMissingError later in the chain if 
+    # .threatresponse.ini can't be found
     s3_bucket = config('asset_bucket', namespace='ssm_acquire')
+    
     for permission in policy_template['PolicyDocument']['Statement']:
         if permission['Action'][0] == 's3:PutObject':
             s3_arn = 'arn:aws:s3:::{}/{}'.format(s3_bucket, instance_id)
@@ -125,7 +132,9 @@ def get_limited_policy(region, instance_id):
             policy_template['PolicyDocument']['Statement'][record_index]['Resource'][0] = s3_arn
             policy_template['PolicyDocument']['Statement'][record_index]['Resource'][1] = s3_keys
     statements = json.dumps(policy_template['PolicyDocument'])
+
     logger.info('Limited scope role generated for assumeRole: {}'.format(statements))
+    
     return statements
 
 
@@ -149,6 +158,8 @@ def check_status(client, response, instance_id):
         CommandId=response['Command']['CommandId'],
         InstanceId=instance_id
     )
+
+    # print('status={}'.format(response['Status']))
 
     if response['Status'] == 'Pending':
         return None
