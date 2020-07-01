@@ -98,7 +98,7 @@ def load_interrogate(credentials, instance_id):
 
 def load_policy():
     this_path = os.path.abspath(os.path.dirname(__file__))
-    path = os.path.join(this_path, "polices/instance-scoped-policy.yml")
+    path = os.path.join(this_path, "policies/instance-scoped-policy.yml")
     return yaml.safe_load(open(path))
 
 
