@@ -59,6 +59,7 @@ def main(instance_id, region, build, acquire, interrogate, analyze, deploy, \
     print('***cli.main params end***')
     """
 
+    # set logging level according to user input
     if verbosity == 1:
         basicConfig(level=INFO)
     elif verbosity >= 2:
