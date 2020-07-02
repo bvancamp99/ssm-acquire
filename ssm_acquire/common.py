@@ -154,12 +154,13 @@ def run_command(client, commands, instance_id):
 
 def check_status(client, response, instance_id):
     logger.debug('Attempting to retrieve status for command_id: {}'.format(response['Command']['CommandId']))
+
     response = client.get_command_invocation(
         CommandId=response['Command']['CommandId'],
         InstanceId=instance_id
     )
 
-    # print('status={}'.format(response['Status']))
+    # print('response[\'Status\']={}'.format(response['Status']))
 
     if response['Status'] == 'Pending':
         return None

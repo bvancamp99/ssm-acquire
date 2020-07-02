@@ -37,6 +37,22 @@ def get_credentials(region, instance_id):
     return credentials
 
 
+def wait_for_status(ssm_client, response, instance_id, spinner):
+    status = common.check_status(ssm_client, response, instance_id)
+
+    while not status:
+        status = common.check_status(ssm_client, response, instance_id)
+
+        sys.stdout.write(next(spinner))
+        sys.stdout.flush()
+        sys.stdout.write('\b')
+
+        time.sleep(0.5)
+    
+    return status
+
+
+# TODO: throws error on valid instance; investigate analyze.py
 def analyze_capture(instance_id, credentials):
     print('Analysis mode active.')
     
@@ -69,23 +85,7 @@ def acquire_mem(instance_id, credentials, ssm_client, spinner):
         logger.info('Memory dump in progress for instance: {}.  Please '
             'wait.'.format(instance_id))
 
-        status = common.check_status(ssm_client, response, instance_id)
-            
-        while not status:
-            status = common.check_status(
-                ssm_client, 
-                response, 
-                instance_id
-            )
-
-            sys.stdout.write(next(spinner))
-            sys.stdout.flush()
-            sys.stdout.write('\b')
-
-            time.sleep(0.5)
-            
-        # explicit setting of status seems unnecessary?
-        # status = 'Success'
+        status = wait_for_status(ssm_client, response, instance_id, spinner)
 
         if status == 'Success':
             logger.info(
@@ -112,24 +112,12 @@ def acquire_mem(instance_id, credentials, ssm_client, spinner):
                 'Copying the asset to s3 bucket for preservation.'
             )
                 
-            status = common.check_status(
+            status = wait_for_status(
                 ssm_client, 
                 response, 
-                instance_id
+                instance_id, 
+                spinner
             )
-
-            while not status:
-                status = common.check_status(
-                    ssm_client, 
-                    response, 
-                    instance_id
-                )
-
-                sys.stdout.write(next(spinner))
-                sys.stdout.flush()
-                sys.stdout.write('\b')
-
-                time.sleep(0.5)
                 
             logger.info('Transfer sequence complete.')
 
@@ -163,16 +151,7 @@ def build_profile(instance_id, credentials, ssm_client, spinner):
 
     time.sleep(2)
 
-    status = common.check_status(ssm_client, response, instance_id)
-        
-    while not status:
-        status = common.check_status(ssm_client, response, instance_id)
-
-        sys.stdout.write(next(spinner))
-        sys.stdout.flush()
-        sys.stdout.write('\b')
-
-        time.sleep(0.5)
+    status = wait_for_status(ssm_client, response, instance_id, spinner)
         
     if status == 'Success':
         logger.info(
@@ -206,16 +185,7 @@ def interrogate_instance(instance_id, credentials, ssm_client, spinner):
 
     time.sleep(2)
 
-    status = common.check_status(ssm_client, response, instance_id)
-
-    while not status:
-        status = common.check_status(ssm_client, response, instance_id)
-
-        sys.stdout.write(next(spinner))
-        sys.stdout.flush()
-        sys.stdout.write('\b')
-
-        time.sleep(0.5)
+    status = wait_for_status(ssm_client, response, instance_id, spinner)
         
     if status == 'Success':
         logger.info(
