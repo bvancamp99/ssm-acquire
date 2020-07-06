@@ -7,12 +7,17 @@ import click
 import itertools
 import time
 import logging
+"""
+import os # temporary
+from pathlib import Path
+"""
 
 from botocore.exceptions import ClientError
 
 from ssm_acquire import analyze as da
 from ssm_acquire import common
 from ssm_acquire import credential
+
 
 config = common.get_config()
 
@@ -220,6 +225,16 @@ def interrogate_instance(instance_id, credentials, ssm_client, spinner):
 def main(instance_id, region, build, acquire, interrogate, analyze, deploy,
     verbosity):
     """ssm_acquire: a rapid evidence preservation tool for Amazon EC2."""
+
+    """
+    print(os.path.dirname(__file__))
+    print(os.path.abspath(os.path.dirname(__file__)))
+    print(os.path.dirname(os.path.abspath(__file__)))
+    print(os.path.realpath(__file__))
+    print(os.path.relpath(__file__))
+    print(os.path.abspath(__file__))
+    exit()
+    """
 
     # set logging level according to user input
     if verbosity == 1:

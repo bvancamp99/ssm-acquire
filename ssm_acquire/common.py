@@ -1,9 +1,11 @@
 import os
 import json
 import yaml
+
 from everett.ext.inifile import ConfigIniEnv
 from everett.manager import ConfigManager
 from everett.manager import ConfigOSEnv
+
 from jinja2 import Template
 from logging import getLogger
 
@@ -12,23 +14,21 @@ logger = getLogger(__name__)
 
 
 def get_config():
-    return ConfigManager(
-        [
-            ConfigIniEnv([
-                os.environ.get('THREATRESPONSE_INI'),
-                '~/.threatresponse.ini',
-                '/etc/threatresponse.ini'
-            ]),
-            ConfigOSEnv()
-        ]
-    )
+    ini_config = ConfigIniEnv([
+        os.environ.get('THREATRESPONSE_INI'),
+        '~/.threatresponse.ini',
+        '/etc/threatresponse.ini'
+    ])
+
+    return ConfigManager([
+        ini_config, 
+        ConfigOSEnv()
+    ])
 
 
 def load_acquire():
     this_path = os.path.abspath(os.path.dirname(__file__))
     path = os.path.join(this_path, "acquire-plans/linpmem.yml")
-
-    # print('path={}'.format(path))
 
     return yaml.safe_load(open(path))
 
