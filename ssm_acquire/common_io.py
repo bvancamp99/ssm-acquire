@@ -3,43 +3,50 @@ import everett.manager
 import jinja2
 import os.path
 import yaml
-"""
-from everett.ext.inifile import ConfigIniEnv
-from everett.manager import ConfigManager
-from everett.manager import ConfigOSEnv
-"""
-#from jinja2 import Template
 
 
 dirname = os.path.dirname(__file__)
 
-config = get_config()
 
-s3_bucket = config('asset_bucket', namespace='ssm_acquire')
-
-
-def get_config():
-    ini_config = everett.ext.inifile.ConfigIniEnv([
+def _init_config():
+    config_file = everett.ext.inifile.ConfigIniEnv([
         os.environ.get('THREATRESPONSE_INI'),
         '~/.threatresponse.ini',
         '/etc/threatresponse.ini'
     ])
 
     return everett.manager.ConfigManager([
-        ini_config, 
+        config_file, 
         everett.manager.ConfigOSEnv()
     ])
 
 
-def load_acquire():
-    this_path = os.path.abspath(os.path.dirname(__file__))
-    path = os.path.join(this_path, "acquire-plans/linpmem.yml")
+config = _init_config()
+
+# will throw ConfigurationMissingError later in the chain if 
+# .threatresponse.ini can't be found
+s3_bucket = config('asset_bucket', namespace='ssm_acquire')
+
+
+def _init_policy():
+    path = os.path.join(dirname, "policies/instance-scoped-policy.yml")
 
     return yaml.safe_load(open(path))
 
 
-# TODO: use in below methods
-def get_jinja2_plan(credentials, instance_id, j2_file):
+policy = _init_policy()
+
+
+def _init_acquire():
+    path = os.path.join(dirname, "acquire-plans/linpmem.yml")
+
+    return yaml.safe_load(open(path))
+
+
+acquire_plans = _init_acquire()
+
+
+def _get_jinja2_plan(credentials, instance_id, j2_file):
     path = os.path.join(dirname, j2_file)
 
     template = None
@@ -58,69 +65,24 @@ def get_jinja2_plan(credentials, instance_id, j2_file):
 
 
 def load_transfer(credentials, instance_id):
-    this_path = os.path.abspath(os.path.dirname(__file__))
-    path = os.path.join(this_path, "transfer-plans/linpmem.yml.j2")
-    config = get_config()
+    j2_file = "transfer-plans/linpmem.yml.j2"
 
-    fh = open(path)
-    template_contents = fh.read()
-    fh.close()
-    s3_bucket = config('asset_bucket', namespace='ssm_acquire')
-    jinja_template = jinja2.Template(template_contents)
-    transfer_plan = jinja_template.render(
-        ssm_acquire_access_key=credentials['Credentials']['AccessKeyId'],
-        ssm_acquire_secret_key=credentials['Credentials']['SecretAccessKey'],
-        ssm_acquire_session_token=credentials['Credentials']['SessionToken'],
-        ssm_acquire_s3_bucket=s3_bucket,
-        ssm_acquire_instance_id=instance_id
+    transfer_plan = _get_jinja2_plan(credentials, instance_id, j2_file)
 
-    )
     return yaml.safe_load(transfer_plan)
 
 
 def load_build(credentials, instance_id):
-    this_path = os.path.abspath(os.path.dirname(__file__))
-    path = os.path.join(this_path, "build-plans/linpmem.yml.j2")
-    config = get_config()
+    j2_file = "build-plans/linpmem.yml.j2"
 
-    fh = open(path)
-    template_contents = fh.read()
-    fh.close()
-    s3_bucket = config('asset_bucket', namespace='ssm_acquire')
-    jinja_template = jinja2.Template(template_contents)
-    build_plan = jinja_template.render(
-        ssm_acquire_access_key=credentials['Credentials']['AccessKeyId'],
-        ssm_acquire_secret_key=credentials['Credentials']['SecretAccessKey'],
-        ssm_acquire_session_token=credentials['Credentials']['SessionToken'],
-        ssm_acquire_s3_bucket=s3_bucket,
-        ssm_acquire_instance_id=instance_id
+    build_plan = _get_jinja2_plan(credentials, instance_id, j2_file)
 
-    )
     return yaml.safe_load(build_plan)
 
 
 def load_interrogate(credentials, instance_id):
-    this_path = os.path.abspath(os.path.dirname(__file__))
-    path = os.path.join(this_path, "interrogate-plans/osquery.yml.j2")
-    config = get_config()
+    j2_file = "interrogate-plans/osquery.yml.j2"
 
-    fh = open(path)
-    template_contents = fh.read()
-    fh.close()
-    s3_bucket = config('asset_bucket', namespace='ssm_acquire')
-    jinja_template = jinja2.Template(template_contents)
-    interrogate_plan = jinja_template.render(
-        ssm_acquire_access_key=credentials['Credentials']['AccessKeyId'],
-        ssm_acquire_secret_key=credentials['Credentials']['SecretAccessKey'],
-        ssm_acquire_session_token=credentials['Credentials']['SessionToken'],
-        ssm_acquire_s3_bucket=s3_bucket,
-        ssm_acquire_instance_id=instance_id
+    interrogate_plan = _get_jinja2_plan(credentials, instance_id, j2_file)
 
-    )
     return yaml.safe_load(interrogate_plan)
-
-
-def load_policy():
-    this_path = os.path.abspath(os.path.dirname(__file__))
-    path = os.path.join(this_path, "policies/instance-scoped-policy.yml")
-    return yaml.safe_load(open(path))

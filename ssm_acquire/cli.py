@@ -7,54 +7,16 @@ import click
 import itertools
 import time
 import logging
-"""
-import os # temporary
-from pathlib import Path
-"""
 
 from botocore.exceptions import ClientError
 
 from ssm_acquire import analyze as da
-from ssm_acquire import common
+from ssm_acquire import common_cmd
+from ssm_acquire import common_io
 from ssm_acquire import credential
 
 
-config = common.get_config()
-
 logger = logging.getLogger(__name__)
-
-
-def get_credentials(region, instance_id):
-    logger.info('Initializing ssm_acquire.')
-
-    limited_scope_policy = common.get_limited_policy(region, instance_id)
-
-    logger.debug('Generating limited scoped policy for instance-id to be '
-        'used in all operations: {}'.format(limited_scope_policy))
-    
-    sts_manager = credential.StsManager(
-        region_name=region, 
-        limited_scope_policy=limited_scope_policy
-    )
-
-    credentials = sts_manager.auth()
-
-    return credentials
-
-
-def wait_for_status(ssm_client, response, instance_id, spinner):
-    status = common.check_status(ssm_client, response, instance_id)
-
-    while not status:
-        status = common.check_status(ssm_client, response, instance_id)
-
-        sys.stdout.write(next(spinner))
-        sys.stdout.flush()
-        sys.stdout.write('\b')
-
-        time.sleep(0.5)
-    
-    return status
 
 
 # TODO: throws error on valid instance; investigate analyze.py
@@ -77,61 +39,53 @@ def acquire_mem(instance_id, credentials, ssm_client, spinner):
     print('Acquire mode active.')
 
     # Only supports amzn2 for now
-    commands = common.load_acquire()['distros']['amzn2']['commands']
+    commands = common_io.acquire_plans['distros']['amzn2']['commands']
 
     # XXX TBD add a distro resolver and replace amzn2 with a dynamic distro.
     try:
         # will throw an error citing "invalid instance id" when ec2 
         # instance can't be seen by the program
-        response = common.run_command(ssm_client, commands, instance_id)
-
-        time.sleep(2)  # Wait for the command to register.
+        response = common_cmd.run_command(ssm_client, commands, instance_id)
 
         logger.info('Memory dump in progress for instance: {}.  Please '
             'wait.'.format(instance_id))
 
-        status = wait_for_status(ssm_client, response, instance_id, spinner)
+        result = common_cmd.wait_for_command(
+            ssm_client, 
+            response, 
+            instance_id
+        )
 
-        if status == 'Success':
-            logger.info(
-                'The task completed with status: {}'.format(status)
-            )
-            logger.info(
-                'Proceeding to copy off the data to the asset store.'
-            )
+        logger.info(
+            'Memory dump completed with result: {}'.format(result)
+        )
                 
-            transfer_plan = common.load_transfer(
-                credentials, 
-                instance_id
-            )['distros']['amzn2']['commands']
+        transfer_plan = common_io.load_transfer(
+            credentials, 
+            instance_id
+        )['distros']['amzn2']['commands']
 
-            response = common.run_command(
-                ssm_client, 
-                transfer_plan, 
-                instance_id
-            )
+        response = common_cmd.run_command(
+            ssm_client, 
+            transfer_plan, 
+            instance_id
+        )
 
-            time.sleep(2)
-
-            logger.info(
-                'Copying the asset to s3 bucket for preservation.'
-            )
+        logger.info(
+            'Transfering memory dump to s3 bucket.'
+        )
                 
-            status = wait_for_status(
-                ssm_client, 
-                response, 
-                instance_id, 
-                spinner
-            )
+        result = common_cmd.wait_for_command(
+            ssm_client, 
+            response, 
+            instance_id
+        )
                 
-            logger.info('Transfer sequence complete.')
+        logger.info(
+            'Transfer sequence completed with result: {}'.format(result)
+        )
 
-            print('Acquire complete.  Memory dumped and transfered to s3 '
-                'bucket.')
-        else:
-            logger.error(
-                'The task did not complete status: {}'.format(status)
-            )
+        print('Acquire complete.  Memory dumped and transfered to s3 bucket.')
     except ClientError as e:
         logger.error(
             'The task could not be completed due to: {}'.format(e)
@@ -141,7 +95,7 @@ def acquire_mem(instance_id, credentials, ssm_client, spinner):
 def build_profile(instance_id, credentials, ssm_client, spinner):
     print('Build mode active.')
 
-    build_plan = common.load_build(
+    build_plan = common_io.load_build(
         credentials, 
         instance_id
     )['distros']['amzn2']['commands']
@@ -149,30 +103,31 @@ def build_profile(instance_id, credentials, ssm_client, spinner):
     logger.info('Attempting to build a rekall profile for instance: {}.'\
         .format(instance_id))
 
-    response = common.run_command(ssm_client, build_plan, instance_id)
+    response = common_cmd.run_command(ssm_client, build_plan, instance_id)
 
-    logger.info('An attempt to build a rekall profile has begun.  Please '
-        'wait.')
-
-    time.sleep(2)
-
-    status = wait_for_status(ssm_client, response, instance_id, spinner)
+    result = common_cmd.wait_for_command(
+        ssm_client, 
+        response, 
+        instance_id
+    )
         
-    if status == 'Success':
-        logger.info(
-            'Rekall profile build complete. A .zip has been added to the '
-                'asset store for instance: {}'.format(instance_id)
-        )
+    logger.info(
+        'Rekall profile build completed with result: {}'.format(result)
+    )
 
-        print('Build completed successfully.')
-    else:
-        logger.error('Rekall profile build failure.')
+    logger.info(
+        'A .zip has been added to the asset store for instance: {}'.format(
+            instance_id
+        )
+    )
+
+    print('Build completed successfully.')
 
 
 def interrogate_instance(instance_id, credentials, ssm_client, spinner):
     print('Interrogate mode active.')
 
-    interrogate_plan = common.load_interrogate(
+    interrogate_plan = common_io.load_interrogate(
         credentials, 
         instance_id
     )['distros']['amzn2']['commands']
@@ -182,25 +137,29 @@ def interrogate_instance(instance_id, credentials, ssm_client, spinner):
             'for instance_id: {}'.format(instance_id)
     )
 
-    response = common.run_command(
+    response = common_cmd.run_command(
         ssm_client, 
         interrogate_plan, 
         instance_id
     )
 
-    time.sleep(2)
+    result = common_cmd.wait_for_command(
+        ssm_client, 
+        response, 
+        instance_id
+    )
 
-    status = wait_for_status(ssm_client, response, instance_id, spinner)
-        
-    if status == 'Success':
-        logger.info(
-            'Interrogation of system complete.  The result of this has '
-                'been added to asset store for: {}'.format(instance_id)
+    logger.info(
+        'Interrogate instance completed with result: {}'.format(result)
+    )
+
+    logger.info(
+        'A .log has been added to the asset store for instance: {}'.format(
+            instance_id
         )
+    )
 
-        print('Interrogate completed successfully.')
-    else:
-        logger.error('Instance interrogation failure.')
+    print('Interrogate completed successfully.')
 
 
 @click.command()
@@ -252,7 +211,7 @@ def main(instance_id, region, build, acquire, interrogate, analyze, deploy,
             'for usage details.')
         return 1
     
-    credentials = get_credentials(region, instance_id)
+    credentials = common_cmd.get_credentials(region, instance_id)
 
     ssm_client = boto3.client(
         'ssm',
@@ -279,5 +238,5 @@ def main(instance_id, region, build, acquire, interrogate, analyze, deploy,
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     sys.exit(main())  # pragma: no cover
