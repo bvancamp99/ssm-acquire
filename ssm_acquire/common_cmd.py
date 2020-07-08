@@ -52,6 +52,9 @@ def get_limited_policy(region, instance_id):
 
 
 def get_credentials(region, instance_id):
+    """Obtains the credentials required to run commands on the EC2 
+    instance."""
+
     logger.info('Initializing ssm_acquire.')
 
     limited_scope_policy = get_limited_policy(region, instance_id)
@@ -71,7 +74,6 @@ def get_credentials(region, instance_id):
 
 def _run_command(ssm_client, commands, instance_id):
     """Runs an SSM command and returns the boto3 response."""
-    
     # XXX TBD add a test to see if another invocation is pending and raise if waiting.
     response = ssm_client.send_command(
         InstanceIds=[instance_id],
@@ -85,32 +87,16 @@ def _run_command(ssm_client, commands, instance_id):
     return response
 
 
-"""
-def _check_status(ssm_client, response, instance_id):
-    logger.debug('Attempting to retrieve status for command_id: {}'.format(response['Command']['CommandId']))
-
-    response = ssm_client.get_command_invocation(
-        CommandId=response['Command']['CommandId'],
-        InstanceId=instance_id
-    )
-
-    # print('response[\'Status\']={}'.format(response['Status']))
-
-    if response['Status'] == 'Pending':
-        return None
-    if response['Status'] == 'InProgress':
-        return None
-    if response['Status'] == 'Delayed':
-        return None
-    if response['Status'] == 'Cancelling':
-        return None
-    return response['Status']
-"""
+def _show_next_cycle_frame():
+    """Shows the next frame of the itertools cycle."""
+    sys.stdout.write(next(spinner))
+    sys.stdout.flush()
+    sys.stdout.write('\b')
 
 
 def _is_invocation_registered(ssm_client, response, instance_id):
     """Polls the ssm_client to see if the SSM command has been received."""
-
+    
     invocation_registered = False
     
     try:
@@ -127,6 +113,28 @@ def _is_invocation_registered(ssm_client, response, instance_id):
             'Please wait...'.format(e.response['Error']['Code']))
     
     return invocation_registered
+
+
+def _ensure_invocation_registered(ssm_client, response, instance_id):
+    """Ensures that the ssm_client has received commands before the function 
+    returns."""
+
+    invocation_registered = _is_invocation_registered(
+        ssm_client, 
+        response, 
+        instance_id
+    )
+
+    while not invocation_registered:
+        _show_next_cycle_frame()
+
+        time.sleep(0.5)
+
+        invocation_registered = _is_invocation_registered(
+            ssm_client, 
+            response, 
+            instance_id
+        )
 
 
 def _evaluate_status(status):
@@ -165,31 +173,18 @@ def _is_command_finished(ssm_client, response, instance_id):
     return finished
 
 
-def _show_next_cycle_frame():
-    """Shows the next frame of the itertools cycle."""
-    sys.stdout.write(next(spinner))
-    sys.stdout.flush()
-    sys.stdout.write('\b')
+def _ensure_command_finished(ssm_client, response, instance_id):
+    """Ensures that the registered commands are completed before the function 
+    returns."""
 
+    finished = _is_command_finished(ssm_client, response, instance_id)
 
-"""
-def _wait_for_command(ssm_client, response, instance_id):
-    # Wait for the command to register.
-    time.sleep(2)
-
-    result = _check_status(ssm_client, response, instance_id)
-
-    while not result:
-        result = _check_status(ssm_client, response, instance_id)
-
-        sys.stdout.write(next(spinner))
-        sys.stdout.flush()
-        sys.stdout.write('\b')
+    while not finished:
+        _show_next_cycle_frame()
 
         time.sleep(0.5)
-    
-    return result
-"""
+
+        finished = _is_command_finished(ssm_client, response, instance_id)
 
 
 def ensure_command(ssm_client, commands, instance_id):
@@ -200,28 +195,6 @@ def ensure_command(ssm_client, commands, instance_id):
     # instance can't be seen by the program
     response = _run_command(ssm_client, commands, instance_id)
 
-    invocation_registered = _is_invocation_registered(
-        ssm_client, 
-        response, 
-        instance_id
-    )
+    _ensure_invocation_registered(ssm_client, response, instance_id)
 
-    while not invocation_registered:
-        _show_next_cycle_frame()
-
-        time.sleep(0.5)
-
-        invocation_registered = _is_invocation_registered(
-            ssm_client, 
-            response, 
-            instance_id
-        )
-
-    finished = _is_command_finished(ssm_client, response, instance_id)
-
-    while not finished:
-        _show_next_cycle_frame()
-
-        time.sleep(0.5)
-
-        finished = _is_command_finished(ssm_client, response, instance_id)
+    _ensure_command_finished(ssm_client, response, instance_id)
