@@ -4,11 +4,7 @@
 import boto3
 import sys
 import click
-import itertools
-import time
 import logging
-
-from botocore.exceptions import ClientError
 
 from ssm_acquire import analyze as da
 from ssm_acquire import common_cmd
@@ -36,7 +32,7 @@ def analyze_capture(instance_id, credentials):
 
 
 def acquire_mem(instance_id, credentials, ssm_client):
-    print('Acquire mode active.')
+    print('Acquire mode active.  Please give about a minute.')
 
     # Only supports amzn2 for now
     memdump_commands = common_io.acquire_plans['distros']['amzn2']['commands']
@@ -62,28 +58,20 @@ def acquire_mem(instance_id, credentials, ssm_client):
     print('Acquire complete.  Memory dumped and transfered to s3 bucket.')
 
 
-def build_profile(instance_id, credentials, ssm_client, spinner):
+def build_profile(instance_id, credentials, ssm_client):
     print('Build mode active.')
-
-    build_plan = common_io.load_build(
-        credentials, 
-        instance_id
-    )['distros']['amzn2']['commands']
 
     logger.info('Attempting to build a rekall profile for instance: {}.'\
         .format(instance_id))
 
-    response = common_cmd._run_command(ssm_client, build_plan, instance_id)
-
-    result = common_cmd._wait_for_command(
-        ssm_client, 
-        response, 
+    build_commands = common_io.load_build(
+        credentials, 
         instance_id
-    )
+    )['distros']['amzn2']['commands']
+
+    common_cmd.ensure_command(ssm_client, build_commands, instance_id)
         
-    logger.info(
-        'Rekall profile build completed with result: {}'.format(result)
-    )
+    logger.info('Rekall profile build complete.')
 
     logger.info(
         'A .zip has been added to the asset store for instance: {}'.format(
@@ -94,34 +82,22 @@ def build_profile(instance_id, credentials, ssm_client, spinner):
     print('Build completed successfully.')
 
 
-def interrogate_instance(instance_id, credentials, ssm_client, spinner):
+def interrogate_instance(instance_id, credentials, ssm_client):
     print('Interrogate mode active.')
 
-    interrogate_plan = common_io.load_interrogate(
+    logger.info(
+        'Attempting to interrogate the instance using the OSQuery binary for '
+            'instance_id: {}'.format(instance_id)
+    )
+
+    interrogate_commands = common_io.load_interrogate(
         credentials, 
         instance_id
     )['distros']['amzn2']['commands']
 
-    logger.info(
-        'Attempting to interrogate the instance using the OSQuery binary '
-            'for instance_id: {}'.format(instance_id)
-    )
+    common_cmd.ensure_command(ssm_client, interrogate_commands, instance_id)
 
-    response = common_cmd._run_command(
-        ssm_client, 
-        interrogate_plan, 
-        instance_id
-    )
-
-    result = common_cmd._wait_for_command(
-        ssm_client, 
-        response, 
-        instance_id
-    )
-
-    logger.info(
-        'Interrogate instance completed with result: {}'.format(result)
-    )
+    logger.info('Interrogate instance complete.')
 
     logger.info(
         'A .log has been added to the asset store for instance: {}'.format(
@@ -190,8 +166,6 @@ def main(instance_id, region, build, acquire, interrogate, analyze, deploy,
         aws_session_token=credentials['Credentials']['SessionToken']
     )
 
-    spinner = itertools.cycle(['-', '/', '|', '\\'])
-
     if analyze is True:
         analyze_capture(instance_id, credentials)
 
@@ -199,12 +173,13 @@ def main(instance_id, region, build, acquire, interrogate, analyze, deploy,
         acquire_mem(instance_id, credentials, ssm_client)
 
     if build is True:
-        build_profile(instance_id, credentials, ssm_client, spinner)
+        build_profile(instance_id, credentials, ssm_client)
 
     if interrogate is True:
-        interrogate_instance(instance_id, credentials, ssm_client, spinner)
+        interrogate_instance(instance_id, credentials, ssm_client)
     
     logger.info('ssm_acquire has completed successfully.')
+    
     return 0
 
 
