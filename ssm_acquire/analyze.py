@@ -5,10 +5,10 @@ import os
 
 from builtins import FileExistsError
 from logging import getLogger
-from ssm_acquire import common
+from ssm_acquire import common_io
 
 
-config = common.get_config()
+config = common_io.config
 logger = getLogger(__name__)
 
 

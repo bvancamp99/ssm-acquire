@@ -3,10 +3,10 @@ import boto3
 from logging import getLogger
 from prompt_toolkit import prompt
 
-from ssm_acquire.common import get_config
+from ssm_acquire import common_io
 
 
-config = get_config()
+config = common_io.config
 logger = getLogger(__name__)
 
 

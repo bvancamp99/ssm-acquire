@@ -35,61 +35,31 @@ def analyze_capture(instance_id, credentials):
         'the asset store.')
 
 
-def acquire_mem(instance_id, credentials, ssm_client, spinner):
+def acquire_mem(instance_id, credentials, ssm_client):
     print('Acquire mode active.')
 
     # Only supports amzn2 for now
-    commands = common_io.acquire_plans['distros']['amzn2']['commands']
+    memdump_commands = common_io.acquire_plans['distros']['amzn2']['commands']
 
     # XXX TBD add a distro resolver and replace amzn2 with a dynamic distro.
-    try:
-        # will throw an error citing "invalid instance id" when ec2 
-        # instance can't be seen by the program
-        response = common_cmd.run_command(ssm_client, commands, instance_id)
 
-        logger.info('Memory dump in progress for instance: {}.  Please '
-            'wait.'.format(instance_id))
+    logger.info('Memory dump in progress for instance: {}.  Please '
+        'wait.'.format(instance_id))
+    
+    common_cmd.ensure_command(ssm_client, memdump_commands, instance_id)
 
-        result = common_cmd.wait_for_command(
-            ssm_client, 
-            response, 
-            instance_id
-        )
+    logger.info('Memory dump complete.  Transfering to s3 bucket...')
 
-        logger.info(
-            'Memory dump completed with result: {}'.format(result)
-        )
-                
-        transfer_plan = common_io.load_transfer(
-            credentials, 
-            instance_id
-        )['distros']['amzn2']['commands']
+    transfer_commands = common_io.load_transfer(
+        credentials, 
+        instance_id
+    )['distros']['amzn2']['commands']
 
-        response = common_cmd.run_command(
-            ssm_client, 
-            transfer_plan, 
-            instance_id
-        )
+    common_cmd.ensure_command(ssm_client, transfer_commands, instance_id)
 
-        logger.info(
-            'Transfering memory dump to s3 bucket.'
-        )
-                
-        result = common_cmd.wait_for_command(
-            ssm_client, 
-            response, 
-            instance_id
-        )
-                
-        logger.info(
-            'Transfer sequence completed with result: {}'.format(result)
-        )
+    logger.info('Transfer to s3 bucket complete.')
 
-        print('Acquire complete.  Memory dumped and transfered to s3 bucket.')
-    except ClientError as e:
-        logger.error(
-            'The task could not be completed due to: {}'.format(e)
-        )
+    print('Acquire complete.  Memory dumped and transfered to s3 bucket.')
 
 
 def build_profile(instance_id, credentials, ssm_client, spinner):
@@ -103,9 +73,9 @@ def build_profile(instance_id, credentials, ssm_client, spinner):
     logger.info('Attempting to build a rekall profile for instance: {}.'\
         .format(instance_id))
 
-    response = common_cmd.run_command(ssm_client, build_plan, instance_id)
+    response = common_cmd._run_command(ssm_client, build_plan, instance_id)
 
-    result = common_cmd.wait_for_command(
+    result = common_cmd._wait_for_command(
         ssm_client, 
         response, 
         instance_id
@@ -137,13 +107,13 @@ def interrogate_instance(instance_id, credentials, ssm_client, spinner):
             'for instance_id: {}'.format(instance_id)
     )
 
-    response = common_cmd.run_command(
+    response = common_cmd._run_command(
         ssm_client, 
         interrogate_plan, 
         instance_id
     )
 
-    result = common_cmd.wait_for_command(
+    result = common_cmd._wait_for_command(
         ssm_client, 
         response, 
         instance_id
@@ -226,7 +196,7 @@ def main(instance_id, region, build, acquire, interrogate, analyze, deploy,
         analyze_capture(instance_id, credentials)
 
     if acquire is True:
-        acquire_mem(instance_id, credentials, ssm_client, spinner)
+        acquire_mem(instance_id, credentials, ssm_client)
 
     if build is True:
         build_profile(instance_id, credentials, ssm_client, spinner)
