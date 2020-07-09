@@ -157,6 +157,8 @@ def main(instance_id, region, build, acquire, interrogate, analyze, deploy,
             'for usage details.')
         return 1
     
+    logger.info('Initializing ssm_acquire.')
+
     credentials = common_cmd.get_credentials(region, instance_id)
 
     ssm_client = boto3.client(

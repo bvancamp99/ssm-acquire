@@ -15,16 +15,75 @@ logger = logging.getLogger(__name__)
 spinner = itertools.cycle(['-', '/', '|', '\\'])
 
 
-def generate_arn_for_instance(region, instance_id):
-    return 'arn:aws:ec2:*:*:instance/{}'.format(instance_id)
 
 
-def get_limited_policy(region, instance_id):
+
+def _get_ec2_arn(region, instance_id):
+    r"""
+    Gets the Amazon resource name for the EC2 instance in the specified 
+    region.
+
+    EC2 arn format is:
+    arn:aws:ec2:\<REGION\>:\<ACCOUNT_ID\>:instance/\<instance-id\>
+
+    ACCOUNT_ID is unnecessary in the context of this program.
+    """
+
+    return 'arn:aws:ec2:{}:*:instance/{}'.format(region, instance_id)
+
+
+# TODO: compartmentalize into separate functions
+def _get_permissions_needed(region, instance_id):
+    """Using the policy document as a template, returns a json-formatted 
+    string containing the permissions needed for program execution."""
+
+    policy_statements = common_io.policy['PolicyDocument']['Statement']
+
+    # STMT1 modification
+
+    s3_arn = 'arn:aws:s3:{}:*:{}/{}'.format(
+        region, 
+        common_io.s3_bucket, 
+        instance_id
+    )
+
+    s3_keys = '{}/*'.format(s3_arn)
+
+    policy_statements[0]['Resource'][0] = s3_arn
+    policy_statements[0]['Resource'][1] = s3_keys
+
+    # STMT2 does not require any modifications
+
+    # STMT3
+
+    policy_statements[2]['Resource'][1] = _get_ec2_arn(
+        region, 
+        instance_id
+    )
+
+    # STMT4
+
+    s3_arn = 'arn:aws:s3:{}:*:{}'.format(region, common_io.s3_bucket)
+
+    s3_keys = '{}/*'.format(s3_arn)
+
+    policy_statements[3]['Resource'][0] = s3_arn
+    policy_statements[3]['Resource'][1] = s3_keys
+    
+    json_statements = json.dumps(common_io.policy['PolicyDocument'])
+
+    logger.info('Limited scope role generated for assumeRole: {}'.format(json_statements))
+    
+    return json_statements
+
+
+"""
+def _get_limited_policy(region, instance_id):
     s3_bucket = common_io.s3_bucket
 
     policy_template = common_io.policy
 
-    instance_arn = generate_arn_for_instance(region, instance_id)
+    instance_arn = _generate_arn_for_instance(region, instance_id)
     
     # TODO: figure out what's going on here
     for permission in policy_template['PolicyDocument']['Statement']:
@@ -49,22 +108,21 @@ def get_limited_policy(region, instance_id):
     logger.info('Limited scope role generated for assumeRole: {}'.format(statements))
     
     return statements
+"""
 
 
 def get_credentials(region, instance_id):
     """Obtains the credentials required to run commands on the EC2 
     instance."""
 
-    logger.info('Initializing ssm_acquire.')
-
-    limited_scope_policy = get_limited_policy(region, instance_id)
+    permissions_needed = _get_permissions_needed(region, instance_id)
 
     logger.debug('Generating limited scoped policy for instance-id to be '
-        'used in all operations: {}'.format(limited_scope_policy))
+        'used in all operations: {}'.format(permissions_needed))
     
     sts_manager = credential.StsManager(
         region_name=region, 
-        limited_scope_policy=limited_scope_policy
+        limited_scope_policy=permissions_needed
     )
 
     credentials = sts_manager.auth()
@@ -96,7 +154,7 @@ def _show_next_cycle_frame():
 
 def _is_invocation_registered(ssm_client, response, instance_id):
     """Polls the ssm_client to see if the SSM command has been received."""
-    
+
     invocation_registered = False
     
     try:
