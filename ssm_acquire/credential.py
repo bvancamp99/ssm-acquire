@@ -1,15 +1,103 @@
 # -*- coding: utf-8 -*-
-import boto3
-from logging import getLogger
+import boto3.session
+
+#from logging import getLogger
 from prompt_toolkit import prompt
 
-from ssm_acquire import common_io
+from ssm_acquire.config import config_manager
+from ssm_acquire import policy
 
 
-config = common_io.config
-logger = getLogger(__name__)
+#config = common_io.config
+#logger = getLogger(__name__)
+
+_role_arn = config_manager('ssm_acquire_role_arn', namespace='ssm_acquire')
+
+_mfa_config = config_manager('mfa_serial_number', namespace='ssm_acquire')
+
+_duration_config = config_manager(
+    'assume_role_session_duration', 
+    default='3600', 
+    namespace='ssm_acquire'
+)
 
 
+def _get_mfa_token():
+    mfa_token = None
+
+    if _mfa_config:
+        mfa_token = prompt('Please enter your MFA Token: ')
+    
+    return mfa_token
+
+
+_mfa_token = _get_mfa_token()
+
+
+def _get_sts_client(region):
+    """Returns an sts client for the given region."""
+
+    boto_session = boto3.session.Session(region_name=region)
+
+    sts_client = boto_session.client('sts')
+
+    return sts_client
+
+
+def _assume_role(region, instance_id, sts_client):
+    """Returns the credentials for assuming a role with optional mfa."""
+
+    json_policy = policy.get_json_policy(region, instance_id)
+    
+    credentials = sts_client.assume_role(
+        RoleArn=_role_arn,
+        RoleSessionName='ssm-acquire',
+        DurationSeconds=_duration_config,
+        SerialNumber=_mfa_config,
+        TokenCode=_mfa_token,
+        Policy=json_policy
+    )
+
+    return credentials
+
+
+def _get_session_token(sts_client):
+    """Returns a session token from the sts client with optional mfa."""
+
+    session_token = sts_client.get_session_token(
+        DurationSeconds=_duration_config,
+        SerialNumber=_mfa_config,
+        TokenCode=_mfa_token
+    )
+
+    return session_token
+
+
+def _get_credentials_helper(region, instance_id, sts_client):
+    """
+    Returns the credentials for assuming a role if a role arn is provided.
+    
+    Otherwise, returns a session token from the sts client.
+    """
+
+    if _role_arn:
+        return _assume_role(region, instance_id, sts_client)
+    else:
+        return _get_session_token(sts_client)
+
+
+def get_credentials(region, instance_id):
+    """Obtains the credentials required to run commands on the EC2 
+    instance."""
+
+    sts_client = _get_sts_client(region)
+
+    credentials = _get_credentials_helper(region, instance_id, sts_client)
+
+    return credentials
+
+
+"""
 class StsManager(object):
     def __init__(self, region_name, limited_scope_policy):
         self.boto_session = boto3.session.Session(region_name=region_name)
@@ -95,3 +183,4 @@ class StsManager(object):
             Policy=self.limited_scope_policy
         )
         return response
+"""

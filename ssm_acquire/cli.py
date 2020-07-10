@@ -8,8 +8,11 @@ import logging
 
 from ssm_acquire import analyze as da
 from ssm_acquire import common_cmd
-from ssm_acquire import common_io
 from ssm_acquire import credential
+from ssm_acquire import jinja2_io
+
+from ssm_acquire.acquire import acquire_plans
+from ssm_acquire.command import ensure_command
 
 
 logger = logging.getLogger(__name__)
@@ -35,23 +38,23 @@ def acquire_mem(instance_id, credentials, ssm_client):
     print('Acquire mode active.  Please give about a minute.')
 
     # Only supports amzn2 for now
-    memdump_commands = common_io.acquire_plans['distros']['amzn2']['commands']
+    memdump_commands = acquire_plans['distros']['amzn2']['commands']
 
     # XXX TBD add a distro resolver and replace amzn2 with a dynamic distro.
 
     logger.info('Memory dump in progress for instance: {}.  Please '
         'wait.'.format(instance_id))
     
-    common_cmd.ensure_command(ssm_client, memdump_commands, instance_id)
+    ensure_command(ssm_client, memdump_commands, instance_id)
 
     logger.info('Memory dump complete.  Transfering to s3 bucket...')
 
-    transfer_commands = common_io.load_transfer(
+    transfer_commands = jinja2_io.get_transfer_plans(
         credentials, 
         instance_id
     )['distros']['amzn2']['commands']
 
-    common_cmd.ensure_command(ssm_client, transfer_commands, instance_id)
+    ensure_command(ssm_client, transfer_commands, instance_id)
 
     logger.info('Transfer to s3 bucket complete.')
 
@@ -64,12 +67,12 @@ def build_profile(instance_id, credentials, ssm_client):
     logger.info('Attempting to build a rekall profile for instance: {}.'\
         .format(instance_id))
 
-    build_commands = common_io.load_build(
+    build_commands = jinja2_io.get_build_plans(
         credentials, 
         instance_id
     )['distros']['amzn2']['commands']
 
-    common_cmd.ensure_command(ssm_client, build_commands, instance_id)
+    ensure_command(ssm_client, build_commands, instance_id)
         
     logger.info('Rekall profile build complete.')
 
@@ -90,12 +93,12 @@ def interrogate_instance(instance_id, credentials, ssm_client):
             'instance_id: {}'.format(instance_id)
     )
 
-    interrogate_commands = common_io.load_interrogate(
+    interrogate_commands = jinja2_io.get_interrogate_plans(
         credentials, 
         instance_id
     )['distros']['amzn2']['commands']
 
-    common_cmd.ensure_command(ssm_client, interrogate_commands, instance_id)
+    ensure_command(ssm_client, interrogate_commands, instance_id)
 
     logger.info('Interrogate instance complete.')
 
