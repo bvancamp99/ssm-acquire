@@ -1,24 +1,29 @@
 # -*- coding: utf-8 -*-
 import boto3.session
+import logging
 
-#from logging import getLogger
 from prompt_toolkit import prompt
 
 from ssm_acquire.config import config_manager
 from ssm_acquire import policy
 
 
-#config = common_io.config
-#logger = getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 _role_arn = config_manager('ssm_acquire_role_arn', namespace='ssm_acquire')
 
-_mfa_config = config_manager('mfa_serial_number', namespace='ssm_acquire')
+_mfa_config = config_manager(
+    'mfa_serial_number', 
+    namespace='ssm_acquire', 
+    default=''
+)
 
-_duration_config = config_manager(
-    'assume_role_session_duration', 
-    default='3600', 
-    namespace='ssm_acquire'
+_session_duration = int(
+    config_manager(
+        'assume_role_session_duration', 
+        namespace='ssm_acquire',
+        default='3600'
+    )
 )
 
 
@@ -44,15 +49,15 @@ def _get_sts_client(region):
     return sts_client
 
 
-def _assume_role(region, instance_id, sts_client):
-    """Returns the credentials for assuming a role with optional mfa."""
+def _assume_role_with_mfa(json_policy, sts_client):
+    """Returns the credentials for assuming a role with mfa."""
 
-    json_policy = policy.get_json_policy(region, instance_id)
-    
+    logger.info('Assuming role with MFA.')
+
     credentials = sts_client.assume_role(
         RoleArn=_role_arn,
         RoleSessionName='ssm-acquire',
-        DurationSeconds=_duration_config,
+        DurationSeconds=_session_duration,
         SerialNumber=_mfa_config,
         TokenCode=_mfa_token,
         Policy=json_policy
@@ -61,16 +66,65 @@ def _assume_role(region, instance_id, sts_client):
     return credentials
 
 
-def _get_session_token(sts_client):
-    """Returns a session token from the sts client with optional mfa."""
+def _assume_role_without_mfa(json_policy, sts_client):
+    """Returns the credentials for assuming a role without mfa."""
+
+    logger.info('Assuming role without MFA.')
+
+    credentials = sts_client.assume_role(
+        RoleArn=_role_arn,
+        RoleSessionName='ssm-acquire',
+        DurationSeconds=_session_duration,
+        Policy=json_policy
+    )
+
+    return credentials
+
+
+def _assume_role(region, instance_id, sts_client):
+    """Returns the credentials for assuming a role with optional mfa."""
+
+    json_policy = policy.get_json_policy(region, instance_id)
+    
+    if _mfa_config:
+        return _assume_role_with_mfa(json_policy, sts_client)
+    else:
+        return _assume_role_without_mfa(json_policy, sts_client)
+
+
+def _get_session_token_with_mfa(sts_client):
+    """Returns a session token from the sts client with mfa."""
+
+    logger.info('Getting session token with MFA.')
 
     session_token = sts_client.get_session_token(
-        DurationSeconds=_duration_config,
+        DurationSeconds=_session_duration,
         SerialNumber=_mfa_config,
         TokenCode=_mfa_token
     )
 
     return session_token
+
+
+def _get_session_token_without_mfa(sts_client):
+    """Returns a session token from the sts client without mfa."""
+
+    logger.info('Getting session token without MFA.')
+
+    session_token = sts_client.get_session_token(
+        DurationSeconds=_session_duration
+    )
+
+    return session_token
+
+
+def _get_session_token(sts_client):
+    """Returns a session token from the sts client with optional mfa."""
+
+    if _mfa_config:
+        return _get_session_token_with_mfa(sts_client)
+    else:
+        return _get_session_token_without_mfa(sts_client)
 
 
 def _get_credentials_helper(region, instance_id, sts_client):

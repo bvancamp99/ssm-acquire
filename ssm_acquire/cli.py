@@ -7,12 +7,11 @@ import click
 import logging
 
 from ssm_acquire import analyze as da
-from ssm_acquire import common_cmd
-from ssm_acquire import credential
 from ssm_acquire import jinja2_io
 
 from ssm_acquire.acquire import acquire_plans
 from ssm_acquire.command import ensure_command
+from ssm_acquire.credential import get_credentials
 
 
 logger = logging.getLogger(__name__)
@@ -162,7 +161,7 @@ def main(instance_id, region, build, acquire, interrogate, analyze, deploy,
     
     logger.info('Initializing ssm_acquire.')
 
-    credentials = common_cmd.get_credentials(region, instance_id)
+    credentials = get_credentials(region, instance_id)
 
     ssm_client = boto3.client(
         'ssm',

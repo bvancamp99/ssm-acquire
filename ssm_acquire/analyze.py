@@ -5,10 +5,11 @@ import os
 
 from builtins import FileExistsError
 from logging import getLogger
-from ssm_acquire import common_io
+
+from ssm_acquire.config import config_manager
 
 
-config = common_io.config
+config = config_manager
 logger = getLogger(__name__)
 
 
@@ -20,7 +21,7 @@ class S3Manager(object):
 
     def _connect(self):
         if self.s3_client is None:
-            logger.info('Intializing an S3 Client.')
+            logger.info('Initializing an S3 Client.')
             self.s3_client = boto3.client(
                 's3',
                 aws_access_key_id=self.credentials['Credentials']['AccessKeyId'],

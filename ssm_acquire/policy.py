@@ -31,6 +31,8 @@ def _update_STMT1(STMT1, instance_id):
     STMT1['Resource'][1] = config.get_s3_keys(s3_arn)
 
 
+# TODO: accessdeniedexception is now thrown when stmt3 doesn't have '*' for 
+#       resources
 def _update_STMT3(STMT3, region, instance_id):
     """
     Modifies the Resource dict of STMT3 *in place* with information about the 
@@ -62,6 +64,7 @@ def _update_statements(statements, region, instance_id):
 
     # STMT2 does not require any modifications
 
+    # TODO: accessdeniedexception thrown when used vv
     _update_STMT3(statements[2], region, instance_id)
 
     _update_STMT4(statements[3])
