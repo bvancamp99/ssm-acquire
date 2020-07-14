@@ -30,9 +30,7 @@ PolicyDocument:
       Action:
         - "ssm:SendCommand"
         - "ec2:DescribeInstanceStatus"
-      Resource:
-        - "arn:aws:ssm:*:*:document/*"
-        - None
+      Resource: '*'
     -
       Sid: "STMT4"
       Effect: "Allow"

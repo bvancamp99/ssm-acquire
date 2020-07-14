@@ -5,11 +5,11 @@ import boto3
 import sys
 import click
 import logging
+import ssm_acquire
 
 from ssm_acquire import analyze as da
 from ssm_acquire import jinja2_io
 
-from ssm_acquire.acquire import acquire_plans
 from ssm_acquire.command import ensure_command
 from ssm_acquire.credential import get_credentials
 
@@ -31,33 +31,6 @@ def analyze_capture(instance_id, credentials):
 
     print('Analysis complete.  The rekall-json dumps have been added to '
         'the asset store.')
-
-
-def acquire_mem(instance_id, credentials, ssm_client):
-    print('Acquire mode active.  Please give about a minute.')
-
-    # Only supports amzn2 for now
-    memdump_commands = acquire_plans['distros']['amzn2']['commands']
-
-    # XXX TBD add a distro resolver and replace amzn2 with a dynamic distro.
-
-    logger.info('Memory dump in progress for instance: {}.  Please '
-        'wait.'.format(instance_id))
-    
-    ensure_command(ssm_client, memdump_commands, instance_id)
-
-    logger.info('Memory dump complete.  Transfering to s3 bucket...')
-
-    transfer_commands = jinja2_io.get_transfer_plans(
-        credentials, 
-        instance_id
-    )['distros']['amzn2']['commands']
-
-    ensure_command(ssm_client, transfer_commands, instance_id)
-
-    logger.info('Transfer to s3 bucket complete.')
-
-    print('Acquire complete.  Memory dumped and transfered to s3 bucket.')
 
 
 def build_profile(instance_id, credentials, ssm_client):
@@ -167,19 +140,24 @@ def main(instance_id, region, build, acquire, interrogate, analyze, deploy,
         'ssm',
         aws_access_key_id=credentials['Credentials']['AccessKeyId'],
         aws_secret_access_key=credentials['Credentials']['SecretAccessKey'],
-        aws_session_token=credentials['Credentials']['SessionToken']
+        aws_session_token=credentials['Credentials']['SessionToken'],
+        region_name=region
     )
 
-    if analyze is True:
+    if analyze:
         analyze_capture(instance_id, credentials)
 
-    if acquire is True:
-        acquire_mem(instance_id, credentials, ssm_client)
+    if acquire:
+        ssm_acquire.acquire.dump_and_transfer(
+            ssm_client, 
+            instance_id, 
+            credentials
+        )
 
-    if build is True:
+    if build:
         build_profile(instance_id, credentials, ssm_client)
 
-    if interrogate is True:
+    if interrogate:
         interrogate_instance(instance_id, credentials, ssm_client)
     
     logger.info('ssm_acquire has completed successfully.')

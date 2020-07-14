@@ -65,7 +65,7 @@ def _update_statements(statements, region, instance_id):
     # STMT2 does not require any modifications
 
     # TODO: accessdeniedexception thrown when used vv
-    _update_STMT3(statements[2], region, instance_id)
+    #_update_STMT3(statements[2], region, instance_id)
 
     _update_STMT4(statements[3])
 
