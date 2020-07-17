@@ -3,7 +3,7 @@ import os.path
 import yaml
 
 from ssm_acquire.command import ensure_command
-from ssm_acquire.jinja2_io import get_transfer_plans
+from ssm_acquire.jinja2_io import get_jinja2_plan
 
 
 logger = logging.getLogger(__name__)
@@ -44,6 +44,18 @@ def _dump_EC2_mem(ssm_client, instance_id):
     logger.info('Memory dump complete.')
 
 
+def _get_transfer_plans(credentials, instance_id):
+    """
+    Loads the j2-formatted plans to transfer the memory dump to the asset 
+    bucket.
+    """
+    j2_file = "transfer-plans/linpmem.yml.j2"
+
+    transfer_plan = get_jinja2_plan(credentials, instance_id, j2_file)
+
+    return yaml.safe_load(transfer_plan)
+
+
 def _get_transfer_commands(instance_id, credentials):
     """
     TODO: Only supports amzn2 for now.  Add support for other distros.
@@ -51,7 +63,7 @@ def _get_transfer_commands(instance_id, credentials):
     Gets commands to transfer the dumped memory of the EC2 instance to the 
     asset bucket.
     """
-    return get_transfer_plans(
+    return _get_transfer_plans(
         credentials, 
         instance_id
     )['distros']['amzn2']['commands']

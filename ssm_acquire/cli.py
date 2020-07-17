@@ -8,10 +8,13 @@ import logging
 import ssm_acquire
 
 from ssm_acquire import analyze as da
-from ssm_acquire import jinja2_io
 
 from ssm_acquire.command import ensure_command
 from ssm_acquire.credential import get_credentials
+
+from ssm_acquire.acquire import dump_and_transfer
+from ssm_acquire.build import build_profile
+from ssm_acquire.interrogate import interrogate_instance
 
 
 logger = logging.getLogger(__name__)
@@ -33,61 +36,102 @@ def analyze_capture(instance_id, credentials):
         'the asset store.')
 
 
-def build_profile(instance_id, credentials, ssm_client):
-    print('Build mode active.')
+def _set_logging_level(verbosity):
+    """Sets the logging level based on the verbosity value."""
+    if verbosity == 1:
+        logging.basicConfig(level=logging.INFO)
+    elif verbosity >= 2:
+        logging.basicConfig(level=logging.DEBUG)
 
-    logger.info('Attempting to build a rekall profile for instance: {}.'\
-        .format(instance_id))
 
-    build_commands = jinja2_io.get_build_plans(
-        credentials, 
-        instance_id
-    )['distros']['amzn2']['commands']
+def _valid_input(instance_id, region, analyze, acquire, build, interrogate):
+    """
+    Checks if the input is valid.
+    
+    Input is considered valid if the instance_id and region are provided, and 
+    at least one of the flags is specified.
+    """
+    if instance_id is None:
+        logger.warning('No EC2 instance specified.  Run \'ssm_acquire '
+            '--help\' for usage details.')
+        return False
+    
+    if region is None:
+        logger.warning('No AWS region specified.  Run \'ssm_acquire --help\' '
+            'for usage details.')
+        return False
 
-    ensure_command(ssm_client, build_commands, instance_id)
-        
-    logger.info('Rekall profile build complete.')
+    if not (analyze or acquire or build or interrogate):
+        logger.warning('No flags specified.  Run \'ssm_acquire --help\' '
+            'for usage details.')
+        return False
+    
+    return True
 
-    logger.info(
-        'A .zip has been added to the asset store for instance: {}'.format(
-            instance_id
-        )
+
+def _get_ssm_client(credentials, region):
+    """Gets SSM client that can send commands to the EC2 instance."""
+    return boto3.client(
+        'ssm',
+        aws_access_key_id=credentials['Credentials']['AccessKeyId'],
+        aws_secret_access_key=credentials['Credentials']['SecretAccessKey'],
+        aws_session_token=credentials['Credentials']['SessionToken'],
+        region_name=region
     )
 
-    print('Build completed successfully.')
+
+def _resolve_flags(
+    analyze, 
+    acquire, 
+    build, 
+    interrogate, 
+    ssm_client, 
+    instance_id, 
+    credentials
+):
+    """Performs actions based on the flags set."""
+    if analyze:
+        analyze_capture(instance_id, credentials)
+
+    if acquire:
+        dump_and_transfer(ssm_client, instance_id, credentials)
+
+    if build:
+        build_profile(ssm_client, instance_id, credentials)
+
+    if interrogate:
+        interrogate_instance(ssm_client, instance_id, credentials)
 
 
-def interrogate_instance(instance_id, credentials, ssm_client):
-    print('Interrogate mode active.')
+def _main_helper(instance_id, region, build, acquire, interrogate, analyze):
+    """
+    Gets the tools needed to send commands to the EC2 instance and runs 
+    commands based on the set flags.
+    """
+    logger.info('Initializing ssm_acquire.')
 
-    logger.info(
-        'Attempting to interrogate the instance using the OSQuery binary for '
-            'instance_id: {}'.format(instance_id)
+    credentials = get_credentials(region, instance_id)
+
+    ssm_client = _get_ssm_client(credentials, region)
+
+    _resolve_flags(
+        analyze, 
+        acquire, 
+        build, 
+        interrogate, 
+        ssm_client, 
+        instance_id, 
+        credentials
     )
-
-    interrogate_commands = jinja2_io.get_interrogate_plans(
-        credentials, 
-        instance_id
-    )['distros']['amzn2']['commands']
-
-    ensure_command(ssm_client, interrogate_commands, instance_id)
-
-    logger.info('Interrogate instance complete.')
-
-    logger.info(
-        'A .log has been added to the asset store for instance: {}'.format(
-            instance_id
-        )
-    )
-
-    print('Interrogate completed successfully.')
+    
+    logger.info('ssm_acquire has completed successfully.')
 
 
 @click.command()
 @click.option('--instance_id', help='The EC2 instance you would like to '
     'operate on.')
-@click.option('--region', default='us-west-2', help='The AWS region where '
-    'the instance can be found.  Default region is us-west-2.')
+@click.option('--region', help='The AWS region where the instance can be '
+    'found.  Example: us-east-1')
 @click.option('--build', is_flag=True, help='Specify if you would like to '
     'build a rekall profile with this capture.')
 @click.option('--acquire', is_flag=True, help='Use linpmem to acquire a '
@@ -97,70 +141,36 @@ def interrogate_instance(instance_id, credentials, ssm_client):
 @click.option('--analyze', is_flag=True, help='Use docker and rekall to '
     'autoanalyze the memory capture.')
 @click.option('--deploy', is_flag=True, help='Create a lambda function with '
-    'a handler to take events from AWS GuardDuty.')
+    'a handler to take events from AWS GuardDuty.\nNOTE: not implemented')
 @click.option('--verbosity', default=0, help='Sets verbosity level. '
     'Default=0=WARNING; 1=INFO; 2=DEBUG. See '
     'https://docs.python.org/3/howto/logging.html for more details on the '
     'logging levels.')
-def main(instance_id, region, build, acquire, interrogate, analyze, deploy,
-    verbosity):
+def main(
+    instance_id, 
+    region, 
+    build, 
+    acquire, 
+    interrogate, 
+    analyze, 
+    deploy, 
+    verbosity
+):
     """ssm_acquire: a rapid evidence preservation tool for Amazon EC2."""
 
-    """
-    print(os.path.dirname(__file__))
-    print(os.path.abspath(os.path.dirname(__file__)))
-    print(os.path.dirname(os.path.abspath(__file__)))
-    print(os.path.realpath(__file__))
-    print(os.path.relpath(__file__))
-    print(os.path.abspath(__file__))
-    exit()
-    """
+    _set_logging_level(verbosity)
 
-    # set logging level according to user input
-    if verbosity == 1:
-        logging.basicConfig(level=logging.INFO)
-    elif verbosity >= 2:
-        logging.basicConfig(level=logging.DEBUG)
-
-    if instance_id is None:
-        logger.warning('No EC2 instance specified.  Run \'ssm_acquire '
-            '--help\' for usage details.')
-        return 1
-
-    if not (acquire or interrogate or build or analyze):
-        logger.warning('No flags specified.  Run \'ssm_acquire --help\' '
-            'for usage details.')
+    if not _valid_input(
+        instance_id, 
+        region, 
+        analyze, 
+        acquire, 
+        build, 
+        interrogate
+    ):
         return 1
     
-    logger.info('Initializing ssm_acquire.')
-
-    credentials = get_credentials(region, instance_id)
-
-    ssm_client = boto3.client(
-        'ssm',
-        aws_access_key_id=credentials['Credentials']['AccessKeyId'],
-        aws_secret_access_key=credentials['Credentials']['SecretAccessKey'],
-        aws_session_token=credentials['Credentials']['SessionToken'],
-        region_name=region
-    )
-
-    if analyze:
-        analyze_capture(instance_id, credentials)
-
-    if acquire:
-        ssm_acquire.acquire.dump_and_transfer(
-            ssm_client, 
-            instance_id, 
-            credentials
-        )
-
-    if build:
-        build_profile(instance_id, credentials, ssm_client)
-
-    if interrogate:
-        interrogate_instance(instance_id, credentials, ssm_client)
-    
-    logger.info('ssm_acquire has completed successfully.')
+    _main_helper(instance_id, region, build, acquire, interrogate, analyze)
     
     return 0
 
