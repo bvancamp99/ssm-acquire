@@ -114,9 +114,11 @@ def _main_helper(instance_id, region, build, acquire, interrogate, analyze):
 
     ssm_client = _get_ssm_client(credentials, region)
 
+    # TESTING
     ensure_command(ssm_client, ['cat /etc/os-release'], instance_id)
 
     exit()
+    # TESTING
 
     _resolve_flags(
         analyze, 
