@@ -76,8 +76,17 @@ def _ensure_invocation_registered(ssm_client, response, instance_id):
         )
 
 
-def _evaluate_status(status):
-    """Evaluates completion status str and returns its bool equivalent."""
+def _evaluate_response(response):
+    """
+    Evaluates the return value of the command invocation.
+
+    Returns whether the status indicates that the command has completed.
+    """
+    # TESTING
+    print(response)
+    # TESTING
+
+    status = response['Status']
 
     """From docs: 'Status': 'Pending'|'InProgress'|'Delayed'|'Success'|
     'Cancelled'|'TimedOut'|'Failed'|'Cancelling'"""
@@ -102,12 +111,12 @@ def _evaluate_status(status):
 def _is_command_finished(ssm_client, response, instance_id):
     """Polls the ssm_client to see if the SSM command has completed."""
 
-    status = ssm_client.get_command_invocation(
+    response = ssm_client.get_command_invocation(
         CommandId=response['Command']['CommandId'],
         InstanceId=instance_id
-    )['Status']
+    )
 
-    finished = _evaluate_status(status)
+    finished = _evaluate_response(response)
 
     return finished
 
