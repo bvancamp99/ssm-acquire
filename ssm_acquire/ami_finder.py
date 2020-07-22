@@ -2,6 +2,7 @@ import logging
 
 from ssm_acquire.command import ensure_command
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -47,6 +48,8 @@ def _get_ami_dict(ssm_client, instance_id):
 def get_ec2_ami(ssm_client, instance_id):
     ami_dict = _get_ami_dict(ssm_client, instance_id)
 
+    #TESTING
     print(ami_dict)
 
     exit()
+    #TESTING
