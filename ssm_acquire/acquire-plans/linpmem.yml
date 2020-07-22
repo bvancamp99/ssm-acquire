@@ -1,8 +1,8 @@
 ---
 name: Acquisition plans for ssm_acquire cli.
-distros:
-  amzn2:
-    commands:
+linux:
+  commands:
+    amzn:
       - cd /home/ec2-user
       - mkdir -p ssm_acquire
       - cd ssm_acquire
@@ -10,3 +10,28 @@ distros:
       - wget -c https://github.com/google/rekall/releases/download/v1.5.1/linpmem-2.1.post4
       - sudo chmod +x linpmem-2.1.post4
       - sudo ./linpmem-2.1.post4 --output ./capture.aff4
+    rehl:
+      - cd /home/ec2-user
+      - mkdir -p ssm_acquire
+      - cd ssm_acquire
+      - rm -f capture.aff4
+      - sudo dnf -y install wget
+      - wget -c https://github.com/Velocidex/c-aff4/releases/download/v3.3.rc3/linpmem-v3.3-rc3.3-rc2
+      - sudo chmod +x linpmem-v3.3-rc3.3-rc2
+      - sudo ./linpmem-v3.3-rc3.3-rc2 --output ./capture.aff4
+    ubuntu:
+      - cd /home/ubuntu
+      - mkdir -p ssm_acquire
+      - cd ssm_acquire
+      - rm -f capture.aff4
+      - wget -c https://github.com/Velocidex/c-aff4/releases/download/v3.3.rc3/linpmem-v3.3-rc3.3-rc2
+      - sudo chmod +x linpmem-v3.3-rc3.3-rc2
+      - sudo ./linpmem-v3.3-rc3.3-rc2 --output ./capture.aff4
+windows:
+  commands:
+    - cd \Users\Administrator
+    - md -Force ssm_acquire
+    - cd ssm_acquire
+    - rm capture.aff4
+    - wget https://github.com/Velocidex/c-aff4/releases/download/v3.3.rc3/winpmem_v3.3.rc3.exe -outfile "winpmem_v3.3.rc3.exe"
+    - .\winpmem_v3.3.rc3.exe --output .\capture.aff4

@@ -14,7 +14,7 @@ spinner = itertools.cycle(['-', '/', '|', '\\'])
 def _run_command(ssm_client, commands, instance_id):
     """Runs an SSM command and returns the boto3 response."""
     # XXX TBD add a test to see if another invocation is pending and raise if waiting.
-    response = ssm_client.send_command(
+    run_response = ssm_client.send_command(
         InstanceIds=[instance_id],
         DocumentName='AWS-RunShellScript',
         Comment='Incident response step execution for: {}'.format(instance_id),
@@ -23,7 +23,7 @@ def _run_command(ssm_client, commands, instance_id):
         }
     )
 
-    return response
+    return run_response
 
 
 def _show_next_cycle_frame():
@@ -33,14 +33,14 @@ def _show_next_cycle_frame():
     sys.stdout.write('\b')
 
 
-def _is_invocation_registered(ssm_client, response, instance_id):
+def _is_invocation_registered(ssm_client, run_response, instance_id):
     """Polls the ssm_client to see if the SSM command has been received."""
 
     invocation_registered = False
     
     try:
         ssm_client.get_command_invocation(
-            CommandId=response['Command']['CommandId'],
+            CommandId=run_response['Command']['CommandId'],
             InstanceId=instance_id
         )
 
@@ -54,13 +54,13 @@ def _is_invocation_registered(ssm_client, response, instance_id):
     return invocation_registered
 
 
-def _ensure_invocation_registered(ssm_client, response, instance_id):
+def _ensure_invocation_registered(ssm_client, run_response, instance_id):
     """Ensures that the ssm_client has received commands before the function 
     returns."""
 
     invocation_registered = _is_invocation_registered(
         ssm_client, 
-        response, 
+        run_response, 
         instance_id
     )
 
@@ -71,22 +71,29 @@ def _ensure_invocation_registered(ssm_client, response, instance_id):
 
         invocation_registered = _is_invocation_registered(
             ssm_client, 
-            response, 
+            run_response, 
             instance_id
         )
 
 
-def _evaluate_response(response):
+def _get_invocation_response(ssm_client, run_response, instance_id):
+    return ssm_client.get_command_invocation(
+        CommandId=run_response['Command']['CommandId'],
+        InstanceId=instance_id
+    )
+
+
+def _evaluate_invocation_response(inv_response):
     """
     Evaluates the return value of the command invocation.
 
     Returns whether the status indicates that the command has completed.
     """
     # TESTING
-    print(response)
+    print(inv_response)
     # TESTING
 
-    status = response['Status']
+    status = inv_response['Status']
 
     """From docs: 'Status': 'Pending'|'InProgress'|'Delayed'|'Success'|
     'Cancelled'|'TimedOut'|'Failed'|'Cancelling'"""
@@ -108,41 +115,66 @@ def _evaluate_response(response):
     return finished
 
 
-def _is_command_finished(ssm_client, response, instance_id):
-    """Polls the ssm_client to see if the SSM command has completed."""
+def _is_command_finished(ssm_client, run_response, instance_id):
+    """
+    Polls the ssm_client to see if the SSM command has completed.
 
-    response = ssm_client.get_command_invocation(
-        CommandId=response['Command']['CommandId'],
-        InstanceId=instance_id
+    Returns the invocation response dict and the bool result as a tuple.
+    """
+    inv_response = _get_invocation_response(
+        ssm_client, 
+        run_response, 
+        instance_id
     )
 
-    finished = _evaluate_response(response)
+    finished = _evaluate_invocation_response(inv_response)
 
-    return finished
+    return (inv_response, finished)
 
 
-def _ensure_command_finished(ssm_client, response, instance_id):
-    """Ensures that the registered commands are completed before the function 
-    returns."""
+def _ensure_command_finished(ssm_client, run_response, instance_id):
+    """
+    Ensures that the registered commands are completed before the function 
+    returns.
 
-    finished = _is_command_finished(ssm_client, response, instance_id)
+    Returns the invocation response that was received when the command 
+    finished.
+    """
+    inv_response, finished = _is_command_finished(
+        ssm_client, 
+        run_response, 
+        instance_id
+    )
 
     while not finished:
         _show_next_cycle_frame()
 
         time.sleep(0.5)
 
-        finished = _is_command_finished(ssm_client, response, instance_id)
+        inv_response, finished = _is_command_finished(
+            ssm_client, 
+            run_response, 
+            instance_id
+        )
+    
+    return inv_response
 
 
 def ensure_command(ssm_client, commands, instance_id):
-    """Runs an SSM command and ensures that it completes before the function 
-    returns."""
+    """
+    Runs an SSM command and ensures that it completes before the function 
+    returns.
 
-    # will throw an error citing "invalid instance id" when ec2 
-    # instance can't be seen by the program
-    response = _run_command(ssm_client, commands, instance_id)
+    Returns a dict that is the final command invocation response.
+    """
+    run_response = _run_command(ssm_client, commands, instance_id)
 
-    _ensure_invocation_registered(ssm_client, response, instance_id)
+    _ensure_invocation_registered(ssm_client, run_response, instance_id)
 
-    _ensure_command_finished(ssm_client, response, instance_id)
+    inv_response = _ensure_command_finished(
+        ssm_client, 
+        run_response, 
+        instance_id
+    )
+
+    return inv_response
