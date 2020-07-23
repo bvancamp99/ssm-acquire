@@ -7,9 +7,7 @@ distros:
       - AWS_ACCESS_KEY_ID={{ ssm_acquire_access_key }} AWS_SECRET_ACCESS_KEY={{ ssm_acquire_secret_key }} AWS_SESSION_TOKEN={{ ssm_acquire_session_token }} aws s3 cp ./capture.aff4 s3://{{ ssm_acquire_s3_bucket }}/{{ ssm_acquire_instance_id }}/
 windows:
   commands:
-    - $dirpath = "\Users\Administrator\ssm_acquire"
-    - cd $dirpath
-    - $filename = "AWSCLIV2.msi"
-    - $filepath = $dirpath + "\" + $filename
-    - if (![System.IO.File]::Exists($filepath)) { wget https://awscli.amazonaws.com/AWSCLIV2.msi -outfile $filename }
-    - Start-Process $filename
+    - cd \Users\Administrator\ssm_acquire
+    - Write-S3Object -BucketName s3://{{ ssm_acquire_s3_bucket }}/{{ ssm_acquire_instance_id }}/ -File capture.aff4
+    - # temp below; need to provide creds for access
+    - Write-S3Object -BucketName ssm-acquire-responder-role-7912855243-assetbucket-12zx82zwtj5tp/i-07441d1fc3efbbbc9/ -File capture.aff4

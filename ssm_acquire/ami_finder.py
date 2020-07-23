@@ -48,8 +48,4 @@ def _get_ami_dict(ssm_client, instance_id):
 def get_ec2_ami(ssm_client, instance_id):
     ami_dict = _get_ami_dict(ssm_client, instance_id)
 
-    #TESTING
-    print(ami_dict)
-
-    exit()
-    #TESTING
+    return ami_dict['ID']
