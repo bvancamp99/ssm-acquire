@@ -33,16 +33,24 @@ def _show_next_cycle_frame():
     sys.stdout.write('\b')
 
 
+def _get_invocation_response(ssm_client, run_response, instance_id):
+    """
+    Returns the response of calling the get_command_invocation function on 
+    the SSM client.
+    """
+    return ssm_client.get_command_invocation(
+        CommandId=run_response['Command']['CommandId'],
+        InstanceId=instance_id
+    )
+
+
 def _is_invocation_registered(ssm_client, run_response, instance_id):
     """Polls the ssm_client to see if the SSM command has been received."""
 
     invocation_registered = False
     
     try:
-        ssm_client.get_command_invocation(
-            CommandId=run_response['Command']['CommandId'],
-            InstanceId=instance_id
-        )
+        _get_invocation_response(ssm_client, run_response, instance_id)
 
         logger.debug('Invocation registered.  Please wait...')
 
@@ -74,13 +82,6 @@ def _ensure_invocation_registered(ssm_client, run_response, instance_id):
             run_response, 
             instance_id
         )
-
-
-def _get_invocation_response(ssm_client, run_response, instance_id):
-    return ssm_client.get_command_invocation(
-        CommandId=run_response['Command']['CommandId'],
-        InstanceId=instance_id
-    )
 
 
 def _evaluate_invocation_response(inv_response):

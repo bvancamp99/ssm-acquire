@@ -114,13 +114,7 @@ def _main_helper(instance_id, region, build, acquire, interrogate, analyze):
 
     ssm_client = _get_ssm_client(credentials, region)
 
-    # TESTING
-    #ensure_command(ssm_client, ['cat /etc/os-release'], instance_id)
-
-    #exit()
-
-    ssm_acquire.ami_finder.get_ec2_ami(ssm_client, instance_id)
-    # TESTING
+    # TODO: resolve linux distro here
 
     _resolve_flags(
         analyze, 
