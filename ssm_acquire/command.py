@@ -8,11 +8,48 @@ from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
 
-spinner = itertools.cycle(['-', '/', '|', '\\'])
+#spinner = itertools.cycle(['-', '/', '|', '\\'])
 
 
+class CommandManager:
+    """
+    Manages the sending of commands to SSM for a given EC2 instance and the 
+    evaluation of responses from SSM.
+    """
+    def __init__(self, ssm_client, instance_id):
+        self.ssm_client = ssm_client
+        self.instance_id = instance_id
+        self.spinner = itertools.cycle(['-', '/', '|', '\\'])
+    
+    def _send_commands(self, commands: list(str)):
+        """
+        Sends a list of commands to SSM and returns its response.
+        """
+        send_response = self.ssm_client.send_command(
+            InstanceIds=[self.instance_id],
+            DocumentName='AWS-RunShellScript',
+            Comment='Incident response step execution for: {}'.format(
+                self.instance_id
+            ),
+            Parameters={
+                "commands": commands
+            }
+        )
+        
+        return send_response
+    
+    def _show_next_cycle_frame(self):
+        """
+        Shows the next frame of the itertools cycle.
+        """
+        sys.stdout.write(next(self.spinner))
+        sys.stdout.flush()
+        sys.stdout.write('\b')
+
+
+"""
 def _run_command(ssm_client, commands, instance_id):
-    """Runs an SSM command and returns the boto3 response."""
+    \"""Runs an SSM command and returns the boto3 response.\"""
     # XXX TBD add a test to see if another invocation is pending and raise if waiting.
     run_response = ssm_client.send_command(
         InstanceIds=[instance_id],
@@ -24,13 +61,16 @@ def _run_command(ssm_client, commands, instance_id):
     )
 
     return run_response
+"""
 
 
+"""
 def _show_next_cycle_frame():
-    """Shows the next frame of the itertools cycle."""
+    \"""Shows the next frame of the itertools cycle.\"""
     sys.stdout.write(next(spinner))
     sys.stdout.flush()
     sys.stdout.write('\b')
+"""
 
 
 def _get_invocation_response(ssm_client, run_response, instance_id):

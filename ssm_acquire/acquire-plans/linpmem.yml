@@ -1,37 +1,36 @@
 ---
 name: Acquisition plans for ssm_acquire cli.
 linux:
-  commands:
+  setup:
     amzn:
-      - cd /home/ec2-user
-      - mkdir -p ssm_acquire
-      - cd ssm_acquire
-      - rm -f capture.aff4
-      - wget -c https://github.com/google/rekall/releases/download/v1.5.1/linpmem-2.1.post4
-      - sudo chmod +x linpmem-2.1.post4
-      - sudo ./linpmem-2.1.post4 --output ./capture.aff4
+      - homedir="/home/ec2-user"
+      - linpmem_url="https://github.com/google/rekall/releases/download/v1.5.1/linpmem-2.1.post4"
+      - linpmem_name="linpmem-2.1.post4"
     rehl:
-      - cd /home/ec2-user
-      - mkdir -p ssm_acquire
-      - cd ssm_acquire
-      - rm -f capture.aff4
       - sudo dnf -y install wget
-      - wget -c https://github.com/Velocidex/c-aff4/releases/download/v3.3.rc3/linpmem-v3.3-rc3.3-rc2
-      - sudo chmod +x linpmem-v3.3-rc3.3-rc2
-      - sudo ./linpmem-v3.3-rc3.3-rc2 --output ./capture.aff4
+      - homedir="/home/ec2-user"
+      - linpmem_url="https://github.com/Velocidex/c-aff4/releases/download/v3.3.rc3/linpmem-v3.3-rc3.3-rc2"
+      - linpmem_name="linpmem-v3.3-rc3.3-rc2"
     ubuntu:
-      - cd /home/ubuntu
-      - mkdir -p ssm_acquire
-      - cd ssm_acquire
-      - rm -f capture.aff4
-      - wget -c https://github.com/Velocidex/c-aff4/releases/download/v3.3.rc3/linpmem-v3.3-rc3.3-rc2
-      - sudo chmod +x linpmem-v3.3-rc3.3-rc2
-      - sudo ./linpmem-v3.3-rc3.3-rc2 --output ./capture.aff4
-windows:
+      - homedir="/home/ubuntu"
+      - linpmem_url="https://github.com/Velocidex/c-aff4/releases/download/v3.3.rc3/linpmem-v3.3-rc3.3-rc2"
+      - linpmem_name="linpmem-v3.3-rc3.3-rc2"
   commands:
-    - cd \Users\Administrator
+    - cd $homedir
+    - mkdir -p ssm_acquire
+    - cd ssm_acquire
+    - rm -f capture.aff4
+    - wget -c $linpmem_url
+    - sudo chmod +x $linpmem_name
+    - sudo ./$linpmem_name --output ./capture.aff4
+windows:
+  setup:
+    - $homedir = "\Users\Administrator"
+    - $linpmem_url = "https://github.com/Velocidex/c-aff4/releases/download/v3.3.rc3/winpmem_v3.3.rc3.exe"
+    - $linpmem_name = "winpmem_v3.3.rc3.exe"
+  commands:
+    - cd $homedir
     - md -Force ssm_acquire
     - cd ssm_acquire
-    - rm capture.aff4
-    - wget https://github.com/Velocidex/c-aff4/releases/download/v3.3.rc3/winpmem_v3.3.rc3.exe -outfile "winpmem_v3.3.rc3.exe"
-    - .\winpmem_v3.3.rc3.exe --output .\capture.aff4
+    - wget $linpmem_url -outfile $linpmem_name
+    - & .\$linpmem_name --output .\capture.aff4

@@ -20,6 +20,26 @@ def _get_acquire_plans():
 acquire_plans = _get_acquire_plans()
 
 
+def _get_linux_commands(distro: str):
+    linux_plans = acquire_plans['linux']
+
+    setup = linux_plans['setup'][distro]
+
+    commands = linux_plans['commands']
+
+    return setup + commands
+
+
+def _get_windows_commands():
+    windows_plans = acquire_plans['windows']
+
+    setup = windows_plans['setup']
+
+    commands = windows_plans['commands']
+
+    return setup + commands
+
+
 def _get_memdump_commands():
     """
     TODO: Only supports amzn2 for now.  Add support for other distros.

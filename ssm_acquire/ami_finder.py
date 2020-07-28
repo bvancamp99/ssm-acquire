@@ -13,7 +13,7 @@ def _get_ami_acquisition_commands():
 _ami_acquisition_commands = _get_ami_acquisition_commands()
 
 
-def _get_dictified_output_helper(std_output_list):
+def _get_dictified_output_helper(std_output_list: list(str)):
     std_output_dict = {}
 
     for line in std_output_list:
@@ -45,7 +45,12 @@ def _get_ami_dict(ssm_client, instance_id):
 
 
 
-def get_ec2_ami(ssm_client, instance_id):
+def get_distro_id(ssm_client, instance_id):
+    """
+    Gets the Linux AMI of the EC2 instance as a string ID.
+
+    Examples: amzn, ubuntu, rehl
+    """
     ami_dict = _get_ami_dict(ssm_client, instance_id)
 
     return ami_dict['ID']
