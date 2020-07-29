@@ -1,0 +1,11 @@
+---
+name: Configure a profile with the credentials to send commands to SSM on the current EC2 instance.
+setup:
+  - access_key={{ ssm_acquire_access_key }}
+  - secret_access_key={{ ssm_acquire_secret_key }}
+  - region={{ ssm_acquire_region }}
+commands:
+  - aws configure --profile ssm_acquire set aws_access_key_id $access_key
+  - aws configure --profile ssm_acquire set aws_secret_access_key $secret_access_key
+  - aws configure --profile ssm_acquire set region $region
+...
