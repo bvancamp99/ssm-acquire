@@ -1,5 +1,9 @@
 ---
 name: Commands to create an IAM role with the ssm_acquire trust policy .json and attach the role to the EC2 instance.
 setup:
-  - trust_policy={{ ssm_acquire_trust_policy }}
+  # TODO: temporary url; should link to master or something else that is more permanent
+  - policy_url=https://github.com/bvancamp99/ssm-acquire/raw/more_distros_support/ssm_acquire/trust_policy.json
+  - policy_name=trust_policy.json
+commands:
+  - wget -c $policy_url
 ...
