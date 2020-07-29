@@ -1,0 +1,5 @@
+---
+name: Commands to create an IAM role with the ssm_acquire trust policy .json and attach the role to the EC2 instance.
+setup:
+  - trust_policy={{ ssm_acquire_trust_policy }}
+...
