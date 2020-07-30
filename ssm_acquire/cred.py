@@ -39,10 +39,21 @@ def _get_mfa_token():
 _mfa_token = _get_mfa_token()
 
 
-def _get_sts_client(region):
-    """Returns an sts client for the given region."""
+def _get_boto_session(region):
+    """
+    Returns a boto session for the given region if specified.
+    """
+    if region:
+        return boto3.session.Session(region_name=region)
+    else:
+        return boto3.session.Session()
 
-    boto_session = boto3.session.Session(region_name=region)
+
+def _get_sts_client(region):
+    """
+    Returns an sts client for the given region if specified.
+    """
+    boto_session = _get_boto_session(region)
 
     sts_client = boto_session.client('sts')
 
@@ -50,8 +61,9 @@ def _get_sts_client(region):
 
 
 def _assume_role_with_mfa(json_policy, sts_client):
-    """Returns the credentials for assuming a role with mfa."""
-
+    """
+    Returns the credentials for assuming a role with mfa.
+    """
     logger.info('Assuming role with MFA.')
 
     credentials = sts_client.assume_role(
@@ -67,8 +79,9 @@ def _assume_role_with_mfa(json_policy, sts_client):
 
 
 def _assume_role_without_mfa(json_policy, sts_client):
-    """Returns the credentials for assuming a role without mfa."""
-
+    """
+    Returns the credentials for assuming a role without mfa.
+    """
     logger.info('Assuming role without MFA.')
 
     credentials = sts_client.assume_role(
@@ -82,8 +95,9 @@ def _assume_role_without_mfa(json_policy, sts_client):
 
 
 def _assume_role(region, instance_id, sts_client):
-    """Returns the credentials for assuming a role with optional mfa."""
-
+    """
+    Returns the credentials for assuming a role with optional mfa.
+    """
     json_policy = get_json_policy(region, instance_id)
     
     if _mfa_config:
@@ -93,8 +107,9 @@ def _assume_role(region, instance_id, sts_client):
 
 
 def _get_session_token_with_mfa(sts_client):
-    """Returns a session token from the sts client with mfa."""
-
+    """
+    Returns a session token from the sts client with mfa.
+    """
     logger.info('Getting session token with MFA.')
 
     session_token = sts_client.get_session_token(
@@ -107,8 +122,9 @@ def _get_session_token_with_mfa(sts_client):
 
 
 def _get_session_token_without_mfa(sts_client):
-    """Returns a session token from the sts client without mfa."""
-
+    """
+    Returns a session token from the sts client without mfa.
+    """
     logger.info('Getting session token without MFA.')
 
     session_token = sts_client.get_session_token(
@@ -119,8 +135,9 @@ def _get_session_token_without_mfa(sts_client):
 
 
 def _get_session_token(sts_client):
-    """Returns a session token from the sts client with optional mfa."""
-
+    """
+    Returns a session token from the sts client with optional mfa.
+    """
     if _mfa_config:
         return _get_session_token_with_mfa(sts_client)
     else:

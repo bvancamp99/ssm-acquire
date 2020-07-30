@@ -23,6 +23,7 @@ linux:
     - wget -c $linpmem_url
     - sudo chmod +x $linpmem_name
     - sudo ./$linpmem_name --output ./capture.aff4
+# TODO: implemented only here so can't use yet
 windows:
   setup:
     - $homedir = "\Users\Administrator"
@@ -33,5 +34,4 @@ windows:
     - md -Force ssm_acquire
     - cd ssm_acquire
     - wget $linpmem_url -outfile $linpmem_name
-    - & .\$linpmem_name --output .\capture.aff4
-...
+    - \& .\$linpmem_name --output .\capture.aff4

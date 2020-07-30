@@ -9,12 +9,12 @@ import ssm_acquire
 
 from ssm_acquire import analyze as da
 
-from ssm_acquire.command import ensure_command
-from ssm_acquire.credential import get_credentials
-
 from ssm_acquire.acquire import dump_and_transfer
 from ssm_acquire.build import build_profile
 from ssm_acquire.interrogate import interrogate_instance
+
+from ssm_acquire.command import SSMClient
+from ssm_acquire.distro import Distrinfo
 
 
 logger = logging.getLogger(__name__)
@@ -55,11 +55,6 @@ def _valid_input(instance_id, region, analyze, acquire, build, interrogate):
         logger.warning('No EC2 instance specified.  Run \'ssm_acquire '
             '--help\' for usage details.')
         return False
-    
-    if region is None:
-        logger.warning('No AWS region specified.  Run \'ssm_acquire --help\' '
-            'for usage details.')
-        return False
 
     if not (analyze or acquire or build or interrogate):
         logger.warning('No flags specified.  Run \'ssm_acquire --help\' '
@@ -69,71 +64,12 @@ def _valid_input(instance_id, region, analyze, acquire, build, interrogate):
     return True
 
 
-def _get_ssm_client(credentials, region):
-    """Gets SSM client that can send commands to the EC2 instance."""
-    return boto3.client(
-        'ssm',
-        aws_access_key_id=credentials['Credentials']['AccessKeyId'],
-        aws_secret_access_key=credentials['Credentials']['SecretAccessKey'],
-        aws_session_token=credentials['Credentials']['SessionToken'],
-        region_name=region
-    )
-
-
-def _resolve_flags(
-    analyze, 
-    acquire, 
-    build, 
-    interrogate, 
-    ssm_client, 
-    instance_id, 
-    credentials
-):
-    """Performs actions based on the flags set."""
-    if analyze:
-        analyze_capture(instance_id, credentials)
-
-    if acquire:
-        dump_and_transfer(ssm_client, instance_id, credentials)
-
-    if build:
-        build_profile(ssm_client, instance_id, credentials)
-
-    if interrogate:
-        interrogate_instance(ssm_client, instance_id, credentials)
-
-
-def _main_helper(instance_id, region, build, acquire, interrogate, analyze):
-    """
-    Gets the tools needed to send commands to the EC2 instance and runs 
-    commands based on the set flags.
-    """
-    logger.info('Initializing ssm_acquire.')
-
-    credentials = get_credentials(region, instance_id)
-
-    ssm_client = _get_ssm_client(credentials, region)
-
-    # TODO: resolve linux distro here
-
-    _resolve_flags(
-        analyze, 
-        acquire, 
-        build, 
-        interrogate, 
-        ssm_client, 
-        instance_id, 
-        credentials
-    )
-    
-    logger.info('ssm_acquire has completed successfully.')
-
-
 @click.command()
 @click.option('--instance_id', help='The EC2 instance you would like to '
     'operate on.')
 @click.option('--region', help='The AWS region where the instance can be '
-    'found.  Example: us-east-1')
+    'found.  If no region is specified, the region env var will be used.'
+    '  Example: us-east-1')
 @click.option('--build', is_flag=True, help='Specify if you would like to '
     'build a rekall profile with this capture.')
 @click.option('--acquire', is_flag=True, help='Use linpmem to acquire a '
@@ -158,8 +94,9 @@ def main(
     deploy, 
     verbosity
 ):
-    """ssm_acquire: a rapid evidence preservation tool for Amazon EC2."""
-
+    """
+    ssm_acquire: a rapid evidence preservation tool for Amazon EC2.
+    """
     _set_logging_level(verbosity)
 
     if not _valid_input(
@@ -172,7 +109,24 @@ def main(
     ):
         return 1
     
-    _main_helper(instance_id, region, build, acquire, interrogate, analyze)
+    ssm_client = SSMClient(region, instance_id)
+
+    distrinfo = Distrinfo(ssm_client)
+    
+    """ TODO: need to fix analyze before being able to use
+    if analyze:
+        analyze_capture(instance_id, credentials)
+    """
+
+    if acquire:
+        dump_and_transfer(ssm_client, distrinfo)
+
+    # TODO: develop SSMClient and Distrinfo support for build and interrogate
+    if build:
+        build_profile(ssm_client, instance_id, credentials)
+
+    if interrogate:
+        interrogate_instance(ssm_client, instance_id, credentials)
     
     return 0
 

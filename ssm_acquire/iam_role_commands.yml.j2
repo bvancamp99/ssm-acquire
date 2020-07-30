@@ -1,0 +1,35 @@
+# TODO: unfinished/unused
+---
+name: Commands to create an IAM role with the ssm_acquire trust policy .json and attach the role to the EC2 instance.
+setup:
+  # TODO: temporary url; should link to master or something else that is more permanent
+  - policy_url=https://github.com/bvancamp99/ssm-acquire/raw/more_distros_support/ssm_acquire/trust-policy.json
+  - policy_name=trust-policy.json
+commands:
+  - wget -c $policy_url
+...
+linux:
+  setup:
+    amzn:
+      - homedir=/home/ec2-user
+    rehl:
+      - sudo dnf -y install wget
+      - homedir=/home/ec2-user
+    ubuntu:
+      - homedir=/home/ubuntu
+    general:
+      - policy_url=https://github.com/bvancamp99/ssm-acquire/raw/more_distros_support/ssm_acquire/trust-policy.json
+      - policy=trust-policy.json
+      - role=SSMAcquireRole
+      - instance_profile=$role-Instance-Profile
+      - ec2_id={{ instance_id }}
+  commands:
+    - cd $homedir
+    - mkdir -p ssm_acquire
+    - cd ssm_acquire
+    - wget -c $policy_url
+    - aws iam create-role --role-name $role --assume-role-policy-document $policy
+    - aws iam attach-role-policy --role-name $role --policy-arn arn:aws:iam::aws:policy/AmazonSSMFullAccess
+    - aws iam create-instance-profile --instance-profile-name $instance_profile
+    - aws iam add-role-to-instance-profile --role-name $role --instance-profile-name $instance_profile
+    - aws ec2 associate-iam-instance-profile --instance-id $ec2_id --iam-instance-profile Name=$instance_profile

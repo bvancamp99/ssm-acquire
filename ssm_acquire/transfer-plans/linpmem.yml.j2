@@ -1,10 +1,17 @@
 ---
 name: Acquisition plans for ssm_acquire cli.
-distros:
-  amzn2:
-    commands:
-      - cd /home/ec2-user/ssm_acquire
-      - AWS_ACCESS_KEY_ID={{ ssm_acquire_access_key }} AWS_SECRET_ACCESS_KEY={{ ssm_acquire_secret_key }} AWS_SESSION_TOKEN={{ ssm_acquire_session_token }} aws s3 cp ./capture.aff4 s3://{{ ssm_acquire_s3_bucket }}/{{ ssm_acquire_instance_id }}/
+linux:
+  setup:
+    amzn:
+      - homedir=/home/ec2-user
+    rehl:
+      - homedir=/home/ec2-user
+    ubuntu:
+      - homedir=/home/ubuntu
+  commands:
+    - cd $homedir/ssm_acquire
+    - AWS_ACCESS_KEY_ID={{ ssm_acquire_access_key }} AWS_SECRET_ACCESS_KEY={{ ssm_acquire_secret_key }} AWS_SESSION_TOKEN={{ ssm_acquire_session_token }} aws s3 cp ./capture.aff4 s3://{{ ssm_acquire_s3_bucket }}/{{ ssm_acquire_instance_id }}/
+# TODO: implement windows support for transfer
 windows:
   commands:
     - cd \Users\Administrator\ssm_acquire

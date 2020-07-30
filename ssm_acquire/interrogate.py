@@ -1,7 +1,7 @@
 import logging
 import yaml
 
-from ssm_acquire.command import ensure_command
+#from ssm_acquire.command import ensure_command
 from ssm_acquire.jinja2_io import get_jinja2_plan
 
 
