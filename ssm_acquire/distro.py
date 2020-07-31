@@ -20,7 +20,7 @@ class Distrinfo:
     Info about an EC2 instance's Linux distro.
 
     self.id is the Linux AMI of the EC2 instance as a string ID.
-    Examples: amzn, ubuntu, rehl
+    Examples: amzn, ubuntu, rhel
     """
     def __init__(self, ssm_client: SSMClient):
         self.os_release = self._get_os_release(ssm_client)

@@ -6,7 +6,7 @@ linux:
       - homedir=/home/ec2-user
       - linpmem_url=https://github.com/google/rekall/releases/download/v1.5.1/linpmem-2.1.post4
       - linpmem_name=linpmem-2.1.post4
-    rehl:
+    rhel:
       - sudo dnf -y install wget
       - homedir=/home/ec2-user
       - linpmem_url=https://github.com/Velocidex/c-aff4/releases/download/v3.3.rc3/linpmem-v3.3-rc3.3-rc2
